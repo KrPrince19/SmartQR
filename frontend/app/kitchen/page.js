@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api, apiAuth, formatTableLabel, formatDate } from '../../lib/api';
 import io from 'socket.io-client';
@@ -13,7 +13,7 @@ const COLS = [
   { key: 'ready', label: 'Ready', color: 'green', icon: Bell, action: 'Mark Served', next: 'served' },
 ];
 
-export default function KitchenPage() {
+function KitchenContent() {
   const searchParams = useSearchParams();
   const restaurantId = searchParams.get('rid');
   const token = searchParams.get('token');
@@ -244,5 +244,19 @@ export default function KitchenPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function KitchenPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <h2 className="text-xl font-semibold mb-2">Loading Kitchen Display...</h2>
+        </div>
+      </div>
+    }>
+      <KitchenContent />
+    </Suspense>
   );
 }

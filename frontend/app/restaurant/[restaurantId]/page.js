@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { api, formatTableLabel, formatCurrency } from '../../../lib/api';
 import {
@@ -7,7 +7,7 @@ import {
   AlertCircle, Loader2, CheckCircle, Trash2, StickyNote
 } from 'lucide-react';
 
-export default function CustomerMenuPage() {
+function CustomerMenuContent() {
   const { restaurantId } = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -300,6 +300,21 @@ export default function CustomerMenuPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CustomerMenuPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-orange-50">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-brand-500 animate-spin mx-auto mb-3" />
+          <p className="text-gray-500">Loading menu...</p>
+        </div>
+      </div>
+    }>
+      <CustomerMenuContent />
+    </Suspense>
   );
 }
 
