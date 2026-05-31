@@ -4,7 +4,8 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { api, formatTableLabel, formatCurrency } from '../../../lib/api';
 import {
   ShoppingCart, Plus, Minus, Leaf, ChevronRight, Search, X,
-  AlertCircle, Loader2, CheckCircle, Trash2, StickyNote
+  AlertCircle, Loader2, CheckCircle, Trash2, StickyNote,
+  Droplet, Bell, Receipt, MessageSquarePlus
 } from 'lucide-react';
 
 function CustomerMenuContent() {
@@ -23,6 +24,22 @@ function CustomerMenuContent() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [showCart, setShowCart] = useState(false);
   const [note, setNote] = useState('');
+  
+  // Service Request states
+  const [showServiceMenu, setShowServiceMenu] = useState(false);
+  const [serviceStatus, setServiceStatus] = useState('');
+
+  const requestService = async (type) => {
+    try {
+      await api.post('/service-requests', { restaurantId, tableNumber, requestType: type });
+      setServiceStatus('Request sent!');
+      setTimeout(() => setServiceStatus(''), 3000);
+      setShowServiceMenu(false);
+    } catch (err) {
+      setServiceStatus('Failed to send request');
+      setTimeout(() => setServiceStatus(''), 3000);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -288,15 +305,58 @@ function CustomerMenuContent() {
 
       {/* Floating cart button (when cart has items and drawer closed) */}
       {cartCount > 0 && !showCart && (
-        <div className="fixed bottom-6 left-0 right-0 flex justify-center z-40 px-4">
+        <div className="fixed bottom-6 left-0 right-0 flex justify-center z-30 px-4 pointer-events-none">
           <button
             onClick={() => setShowCart(true)}
-            className="bg-brand-500 hover:bg-brand-600 text-white rounded-2xl px-6 py-3.5 flex items-center gap-3 shadow-lg shadow-brand-500/30 transition-all active:scale-95"
+            className="bg-brand-500 hover:bg-brand-600 text-white rounded-2xl px-6 py-3.5 flex items-center gap-3 shadow-lg shadow-brand-500/30 transition-all active:scale-95 pointer-events-auto"
           >
             <div className="bg-white/20 rounded-lg px-2 py-0.5 text-sm font-bold">{cartCount}</div>
             <span className="font-medium">View Order</span>
             <span className="font-bold">₹{cartTotal.toFixed(0)}</span>
           </button>
+        </div>
+      )}
+
+      {/* Service Request FAB */}
+      {tableNumber && !showCart && (
+        <div className="fixed bottom-6 right-4 z-40 flex flex-col items-end gap-3">
+          {showServiceMenu && (
+            <div className="flex flex-col gap-2 mb-2 animate-slide-in origin-bottom-right">
+              <button onClick={() => requestService('request_bill')} className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 active:scale-95 transition-all group">
+                <span className="text-sm font-semibold text-gray-700 group-hover:text-red-600">Request Bill</span>
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                  <Receipt className="w-4 h-4" />
+                </div>
+              </button>
+              <button onClick={() => requestService('call_waiter')} className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 active:scale-95 transition-all group">
+                <span className="text-sm font-semibold text-gray-700 group-hover:text-yellow-600">Call Waiter</span>
+                <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
+                  <Bell className="w-4 h-4" />
+                </div>
+              </button>
+              <button onClick={() => requestService('need_water')} className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 active:scale-95 transition-all group">
+                <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-600">Need Water</span>
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <Droplet className="w-4 h-4" />
+                </div>
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setShowServiceMenu(!showServiceMenu)}
+            className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all active:scale-95 ${
+              showServiceMenu ? 'bg-gray-900 text-white rotate-45' : 'bg-white text-brand-600 border border-gray-100'
+            }`}
+          >
+            {showServiceMenu ? <Plus className="w-6 h-6" /> : <MessageSquarePlus className="w-6 h-6" />}
+          </button>
+        </div>
+      )}
+
+      {/* Service Request Toast */}
+      {serviceStatus && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-medium shadow-xl animate-fade-in">
+          {serviceStatus}
         </div>
       )}
     </div>

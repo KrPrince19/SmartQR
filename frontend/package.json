@@ -8,15 +8,16 @@
     "start": "next start"
   },
   "dependencies": {
+    "@base-ui-components/react": "^1.0.0-alpha.2",
+    "axios": "^1.7.3",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "lucide-react": "^0.400.0",
     "next": "14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "socket.io-client": "^4.7.5",
-    "zustand": "^4.5.4",
-    "lucide-react": "^0.400.0",
-    "@base-ui-components/react": "^1.0.0-alpha.2",
-    "clsx": "^2.1.1",
-    "axios": "^1.7.3"
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -162,6 +162,14 @@ export default function HomePage() {
                 </div>
               </div>
 
+              {mode === 'login' && (
+                <div className="flex justify-end">
+                  <Link href="/forgot-password" className="text-xs font-medium text-brand-600 hover:text-brand-700">
+                    Forgot Password?
+                  </Link>
+                </div>
+              )}
+
               {(msg || error) && (
                 <div className="bg-red-50 text-red-700 text-sm px-3 py-2.5 rounded-xl border border-red-200">
                   {msg || error}

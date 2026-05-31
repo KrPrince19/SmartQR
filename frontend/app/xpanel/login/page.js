@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useSuperStore } from '../../../store/useSuperStore';
 import { Shield, Eye, EyeOff, Loader2, Lock, AlertTriangle } from 'lucide-react';
 
@@ -90,6 +91,12 @@ export default function SuperLoginPage() {
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Link href="/xpanel/forgot-password" className="text-xs font-medium text-violet-400 hover:text-violet-300">
+                Forgot Password?
+              </Link>
             </div>
 
             {/* Error message */}

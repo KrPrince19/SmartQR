@@ -3,28 +3,66 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '../../store/useAuthStore';
 import Link from 'next/link';
+import io from 'socket.io-client';
 import {
   LayoutDashboard, UtensilsCrossed, QrCode, ChefHat,
-  LogOut, Menu, X, Settings, TableProperties, BarChart3
+  LogOut, Menu, X, Settings, TableProperties, BarChart3, Bell
 } from 'lucide-react';
+
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000';
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/admin/orders', label: 'Orders', icon: BarChart3 },
+  { href: '/admin/requests', label: 'Service Requests', icon: Bell },
   { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed },
   { href: '/admin/tables', label: 'Tables & QR', icon: QrCode },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function AdminLayout({ children }) {
-  const { token, restaurant, logout, unreadOrders } = useAuthStore();
+  const { token, restaurant, logout, unreadOrders, unreadRequests, incrementUnreadRequests } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toastReq, setToastReq] = useState(null);
 
   useEffect(() => {
     if (!token) router.push('/');
-  }, [token]);
+    
+    // Setup socket listener for service requests globally in the layout
+    let socket;
+    if (token && restaurant) {
+      socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+      socket.emit('join-restaurant', restaurant._id);
+      
+      const handleNewRequest = (reqData) => {
+        if (pathname !== '/admin/requests') {
+          incrementUnreadRequests();
+          
+          // Audio alert
+          try {
+            const audio = new Audio('/notification.mp3');
+            audio.play().catch(() => {});
+          } catch (e) {}
+
+          // Toast
+          const titles = { need_water: 'Water', call_waiter: 'Waiter', request_bill: 'Bill' };
+          setToastReq(`Table ${reqData.tableNumber} requested ${titles[reqData.requestType] || 'Service'}`);
+          setTimeout(() => setToastReq(null), 4000);
+        }
+      };
+
+      socket.on('new-service-request', handleNewRequest);
+    }
+    
+    return () => {
+      if (socket) {
+        socket.emit('leave-restaurant', restaurant._id);
+        socket.disconnect();
+      }
+    };
+  }, [token, restaurant, pathname]);
 
   if (!token || !restaurant) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -86,6 +124,12 @@ export default function AdminLayout({ children }) {
                   {unreadOrders} NEW
                 </span>
               )}
+              {/* Notification Badge for Requests */}
+              {label === 'Service Requests' && unreadRequests > 0 && (
+                <span className="bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse-slow">
+                  {unreadRequests} NEW
+                </span>
+              )}
             </Link>
           ))}
 
@@ -129,7 +173,13 @@ export default function AdminLayout({ children }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto relative">
+          {toastReq && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-full text-sm font-medium shadow-2xl flex items-center gap-3 animate-slide-in">
+              <Bell className="w-4 h-4 text-brand-400 animate-bounce" />
+              {toastReq}
+            </div>
+          )}
           {children}
         </main>
       </div>

@@ -143,6 +143,7 @@ export default function OrdersPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Table</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Items</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Billing</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Time</th>
                   <th className="px-4 py-3"></th>
@@ -167,6 +168,13 @@ export default function OrdersPage() {
                       <span className={`badge ${STATUS_COLORS[order.status]}`}>
                         {STATUS_LABELS[order.status]}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {order.isBilled ? (
+                        <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-md">Billed</span>
+                      ) : (
+                        <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">Pending</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-semibold text-gray-800">
                       {formatCurrency(order.totalAmount, restaurant.currency)}
@@ -204,7 +212,14 @@ export default function OrdersPage() {
                   {order.items.map((i, idx) => `${i.name} ×${i.quantity}`).join(', ')}
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-400 text-xs">{formatDate(order.createdAt)}</span>
+                  <div className="flex items-center gap-2">
+                    {order.isBilled ? (
+                      <span className="text-xs font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">Billed</span>
+                    ) : (
+                      <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Pending</span>
+                    )}
+                    <span className="text-gray-400 text-xs">{formatDate(order.createdAt)}</span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-gray-900">{formatCurrency(order.totalAmount, restaurant.currency)}</span>
                     <button onClick={() => setPrintOrder(order)} className="p-1.5 hover:bg-gray-100 rounded-lg">
@@ -246,11 +261,37 @@ export default function OrdersPage() {
 function PrintModal({ order: initialOrder, restaurant, onClose, onUpdate }) {
   const { token } = useAuthStore();
   const [order, setOrder] = useState(initialOrder);
+  const [isConsolidated, setIsConsolidated] = useState(false);
+  const [loadingBill, setLoadingBill] = useState(!initialOrder.isBilled);
   const [showAdd, setShowAdd] = useState(false);
   const [newItem, setNewItem] = useState({ name: 'Water Bottle', price: 20, quantity: 1 });
   const [adding, setAdding] = useState(false);
 
+  useEffect(() => {
+    // If the order is not yet billed, fetch the consolidated bill for the table
+    if (!initialOrder.isBilled) {
+      const fetchBill = async () => {
+        try {
+          const client = apiAuth(token);
+          const encodedTable = encodeURIComponent(initialOrder.tableNumber);
+          const { data } = await client.get(`/orders/table/${encodedTable}/bill`);
+          setOrder(data);
+          setIsConsolidated(true);
+        } catch (err) {
+          // If error (e.g., no pending orders), just fallback to single order
+          console.error(err);
+        }
+        setLoadingBill(false);
+      };
+      fetchBill();
+    }
+  }, [initialOrder, token]);
+
   const handleAddItem = async () => {
+    if (isConsolidated) {
+      alert("Please add items to a specific order from the customer's phone or another screen. Combined bills cannot be edited directly.");
+      return;
+    }
     setAdding(true);
     try {
       const client = apiAuth(token);
@@ -265,16 +306,38 @@ function PrintModal({ order: initialOrder, restaurant, onClose, onUpdate }) {
     setAdding(false);
   };
 
+  const handlePrint = async () => {
+    window.print();
+    if (isConsolidated && !initialOrder.isBilled) {
+      try {
+        const client = apiAuth(token);
+        const encodedTable = encodeURIComponent(initialOrder.tableNumber);
+        await client.post(`/orders/table/${encodedTable}/mark-billed`);
+        if (onUpdate) onUpdate();
+        // Give print dialog time to show, then close
+        setTimeout(onClose, 1000);
+      } catch (err) {
+        console.error('Failed to mark billed', err);
+      }
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-sm w-full flex flex-col max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="font-semibold">Bill — Order #{order.orderNumber}</h3>
+          <h3 className="font-semibold">
+            {isConsolidated ? 'Table Bill' : `Bill — Order #${order.orderNumber}`}
+          </h3>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-5 font-mono text-sm relative overflow-hidden z-0 bg-white">
+        {loadingBill ? (
+          <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-brand-500" /></div>
+        ) : (
+          <>
+            <div className="p-5 font-mono text-sm relative overflow-hidden z-0 bg-white">
           {/* Watermark Background */}
           <div className="absolute inset-0 z-[-1] flex items-center justify-center pointer-events-none opacity-[0.03] select-none overflow-hidden">
             <span className="text-5xl font-black whitespace-nowrap -rotate-45 text-black">
@@ -285,9 +348,10 @@ function PrintModal({ order: initialOrder, restaurant, onClose, onUpdate }) {
           <div className="text-center mb-4 relative z-10">
             <p className="font-bold text-xl tracking-tight text-black">{restaurant.name}</p>
             {restaurant.address && <p className="text-xs text-gray-500 mt-1">{restaurant.address}</p>}
+            {isConsolidated && <p className="text-xs bg-black text-white px-2 py-0.5 inline-block mt-2 rounded">CONSOLIDATED BILL</p>}
           </div>
           <div className="space-y-1 mb-4 text-xs">
-            <div className="flex justify-between"><span>Order #</span><span>{order.orderNumber}</span></div>
+            {!isConsolidated && <div className="flex justify-between"><span>Order #</span><span>{order.orderNumber}</span></div>}
             <div className="flex justify-between"><span>Table</span><span>{formatTableLabel(order.tableNumber)}</span></div>
             <div className="flex justify-between"><span>Date</span><span>{new Date(order.createdAt).toLocaleDateString('en-IN')}</span></div>
           </div>
@@ -306,10 +370,11 @@ function PrintModal({ order: initialOrder, restaurant, onClose, onUpdate }) {
         </div>
 
         {/* Add Item Form (No Print) */}
-        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 no-print flex-shrink-0">
-          {!showAdd ? (
-            <button
-              onClick={() => setShowAdd(true)}
+        {!isConsolidated && (
+          <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 no-print flex-shrink-0">
+            {!showAdd ? (
+              <button
+                onClick={() => setShowAdd(true)}
               className="w-full py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-brand-600 hover:bg-gray-100 transition-colors"
             >
               + Add Item to Bill
@@ -348,13 +413,16 @@ function PrintModal({ order: initialOrder, restaurant, onClose, onUpdate }) {
             </div>
           )}
         </div>
+        )}
 
         <div className="p-4 flex gap-3 border-t no-print flex-shrink-0">
           <button onClick={onClose} className="btn-secondary flex-1 text-sm">Close</button>
-          <button onClick={() => window.print()} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2">
+          <button onClick={handlePrint} className="btn-primary flex-1 text-sm flex items-center justify-center gap-2">
             <Printer className="w-4 h-4" /> Print
           </button>
         </div>
+      </>
+      )}
       </div>
     </div>
   );

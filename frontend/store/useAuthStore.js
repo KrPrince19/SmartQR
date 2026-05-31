@@ -13,10 +13,13 @@ export const useAuthStore = create(
       isLoading: false,
       error: null,
       unreadOrders: 0,
+      unreadRequests: 0,
 
       setAuth: (token, restaurant) => set({ token, restaurant, error: null }),
       incrementUnread: () => set((state) => ({ unreadOrders: state.unreadOrders + 1 })),
       clearUnread: () => set({ unreadOrders: 0 }),
+      incrementUnreadRequests: () => set((state) => ({ unreadRequests: state.unreadRequests + 1 })),
+      clearUnreadRequests: () => set({ unreadRequests: 0 }),
 
       login: async (adminEmail, adminPassword) => {
         set({ isLoading: true, error: null });
