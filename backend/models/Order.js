@@ -20,6 +20,7 @@ const orderSchema = new mongoose.Schema({
   totalAmount: { type: Number, required: true },
   customerNote: { type: String, default: '' },
   orderNumber: { type: Number },
+  isBilled: { type: Boolean, default: false },
 }, { timestamps: true });
 
 orderSchema.pre('save', async function (next) {

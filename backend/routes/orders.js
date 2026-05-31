@@ -134,6 +134,69 @@ router.post('/:id/add-item', auth, async (req, res) => {
   }
 });
 
+// Admin: Get unbilled (pending) bill for a table
+router.get('/table/:tableNumber/bill', auth, async (req, res) => {
+  try {
+    const orders = await Order.find({
+      restaurant: req.restaurant._id,
+      tableNumber: req.params.tableNumber,
+      isBilled: { $ne: true }
+    }).sort({ createdAt: 1 });
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'No pending orders for this table' });
+    }
+
+    // Merge all items
+    const mergedItems = [];
+    orders.forEach(o => {
+      o.items.forEach(item => {
+        // Find if item already exists in merged list (by name and price)
+        const existing = mergedItems.find(i => i.name === item.name && i.price === item.price);
+        if (existing) {
+          existing.quantity += item.quantity;
+        } else {
+          mergedItems.push({
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            isVeg: item.isVeg
+          });
+        }
+      });
+    });
+
+    const totalAmount = mergedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+    res.json({
+      orders: orders.map(o => o._id),
+      tableNumber: req.params.tableNumber,
+      items: mergedItems,
+      totalAmount,
+      createdAt: orders[0].createdAt // Use the first order's date for the bill
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Admin: Mark table's orders as billed
+router.post('/table/:tableNumber/mark-billed', auth, async (req, res) => {
+  try {
+    await Order.updateMany(
+      { 
+        restaurant: req.restaurant._id,
+        tableNumber: req.params.tableNumber,
+        isBilled: { $ne: true }
+      },
+      { $set: { isBilled: true } }
+    );
+    res.json({ message: 'Table marked as billed' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Admin: get 7-day sales chart data
 router.get('/stats/weekly', auth, async (req, res) => {
   try {

@@ -13,6 +13,8 @@ const superAdminSchema = new mongoose.Schema({
   lockedUntil: { type: Date },
   ipWhitelist: [{ type: String }], // Optional IP restriction
   sessionTokens: [{ type: String }], // Track active sessions for revocation
+  resetPasswordToken: String,
+  resetPasswordExpire: Date,
 }, { timestamps: true });
 
 // Lock account after 5 failed attempts for 30 minutes

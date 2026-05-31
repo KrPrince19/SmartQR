@@ -32,6 +32,7 @@ app.use('/api/menu', require('./routes/menu'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/tables', require('./routes/tables'));
 app.use('/api/restaurant', require('./routes/restaurant'));
+app.use('/api/service-requests', require('./routes/serviceRequests'));
 
 // Super admin panel — completely separate auth, separate JWT secret
 // Non-obvious URL prefix for security through obscurity (in addition to real auth)

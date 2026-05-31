@@ -11,6 +11,8 @@ const restaurantSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   adminEmail: { type: String, required: true, unique: true },
   adminPassword: { type: String, required: true },
+  resetPasswordToken: String,
+  resetPasswordExpire: Date,
 }, { timestamps: true });
 
 module.exports = mongoose.model('Restaurant', restaurantSchema);

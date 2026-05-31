@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Restaurant = require('../models/Restaurant');
 const auth = require('../middleware/auth');
+const crypto = require('crypto');
+const sendEmail = require('../utils/sendEmail');
 
 const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'superadmin@smartqr.app';
 
@@ -74,6 +76,65 @@ router.put('/me', auth, async (req, res) => {
       { new: true }
     ).select('-adminPassword');
     res.json({ restaurant });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Forgot Password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { adminEmail } = req.body;
+    const restaurant = await Restaurant.findOne({ adminEmail });
+    if (!restaurant) {
+      return res.status(404).json({ message: 'There is no user with that email' });
+    }
+
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    restaurant.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    restaurant.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
+    await restaurant.save();
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+    const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please go to the following link to reset your password: \n\n ${resetUrl}`;
+
+    try {
+      await sendEmail({
+        to: restaurant.adminEmail,
+        subject: 'Password reset token',
+        text: message
+      });
+      res.status(200).json({ success: true, message: 'Email sent' });
+    } catch (err) {
+      restaurant.resetPasswordToken = undefined;
+      restaurant.resetPasswordExpire = undefined;
+      await restaurant.save();
+      return res.status(500).json({ message: 'Email could not be sent' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Reset Password
+router.post('/reset-password/:token', async (req, res) => {
+  try {
+    const resetPasswordToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+    const restaurant = await Restaurant.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!restaurant) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    restaurant.adminPassword = await bcrypt.hash(req.body.password, 12);
+    restaurant.resetPasswordToken = undefined;
+    restaurant.resetPasswordExpire = undefined;
+    await restaurant.save();
+
+    res.status(200).json({ success: true, message: 'Password updated successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
